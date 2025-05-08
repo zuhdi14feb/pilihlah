@@ -1,0 +1,97 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Filter Foto Berdasarkan Kode Angka</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f0f0f0;
+    }
+    input, button {
+      padding: 10px;
+      margin: 5px 0;
+    }
+    .gallery {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .photo-card {
+      border: 1px solid #ccc;
+      padding: 10px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 1px 1px 5px rgba(0,0,0,0.1);
+    }
+    img {
+      max-width: 150px;
+      height: auto;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h2>Pilih Foto Berdasarkan Kode Angka</h2>
+  <input type="file" id="fileInput" multiple accept="image/*" />
+  <br />
+  <input type="text" id="kodeInput" placeholder="Masukkan kode angka, pisahkan dengan koma (misal: 123,456,789)" size="60"/>
+  <br />
+  <button onclick="filterPhotos()">Tampilkan Foto</button>
+
+  <div class="gallery" id="gallery"></div>
+
+  <script>
+    let files = [];
+
+    document.getElementById('fileInput').addEventListener('change', (e) => {
+      files = Array.from(e.target.files);
+    });
+
+    function filterPhotos() {
+      const kodeInput = document.getElementById('kodeInput').value.trim();
+      const gallery = document.getElementById('gallery');
+      gallery.innerHTML = '';
+
+      if (!kodeInput || files.length === 0) {
+        alert("Pastikan Anda sudah meng-upload file dan mengisi kode.");
+        return;
+      }
+
+      // Ambil hanya angka valid dari input
+      const kodeList = kodeInput.split(',')
+        .map(k => k.trim())
+        .filter(k => /^\d+$/.test(k)); // hanya angka
+
+      const matchedFiles = files.filter(file => {
+        const nameWithoutExt = file.name.toLowerCase().split('.').slice(0, -1).join('.');
+        return kodeList.includes(nameWithoutExt);
+      });
+
+      if (matchedFiles.length === 0) {
+        gallery.innerHTML = '<p>Tidak ada foto yang cocok dengan kode angka.</p>';
+        return;
+      }
+
+      matchedFiles.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const div = document.createElement('div');
+          div.className = 'photo-card';
+          div.innerHTML = `
+            <img src="\${e.target.result}" alt="\${file.name}" />
+            <p>\${file.name}</p>
+            <a href="\${e.target.result}" download="\${file.name}">Download</a>
+          `;
+          gallery.appendChild(div);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  </script>
+</body>
+</html>
