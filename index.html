@@ -1,10 +1,11 @@
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Filter Foto Berdasarkan Kode Angka</title>
+  <title>Cari Foto Berdasarkan Angka dalam Nama File</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -27,53 +28,75 @@
       background: white;
       border-radius: 8px;
       box-shadow: 1px 1px 5px rgba(0,0,0,0.1);
+      text-align: center;
     }
     img {
       max-width: 150px;
       height: auto;
       display: block;
+      margin: 0 auto;
+    }
+    .highlight {
+      background-color: yellow;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <h2>Pilih Foto Berdasarkan Kode Angka</h2>
+  <h2>Cari Foto Berdasarkan Angka dalam Nama File</h2>
   <input type="file" id="fileInput" multiple accept="image/*" />
   <br />
-  <input type="text" id="kodeInput" placeholder="Masukkan kode angka, pisahkan dengan koma (misal: 123,456,789)" size="60"/>
+  <input type="text" id="kodeInput" placeholder="Masukkan kode angka, pisahkan dengan koma (contoh: 123,456,789)" size="60"/>
   <br />
   <button onclick="filterPhotos()">Tampilkan Foto</button>
+  <button id="downloadAllBtn" onclick="downloadAll()" style="display:none;">Download Semua</button>
 
   <div class="gallery" id="gallery"></div>
 
   <script>
     let files = [];
+    let matchedFiles = [];
+    let kodeList = [];
 
     document.getElementById('fileInput').addEventListener('change', (e) => {
       files = Array.from(e.target.files);
     });
 
+    function escapeRegExp(string) {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function highlightMatches(filename, kodeList) {
+      let highlighted = filename;
+      kodeList.forEach(kode => {
+        const regex = new RegExp(escapeRegExp(kode), 'gi');
+        highlighted = highlighted.replace(regex, match => `<span class="highlight">${match}</span>`);
+      });
+      return highlighted;
+    }
+
     function filterPhotos() {
       const kodeInput = document.getElementById('kodeInput').value.trim();
       const gallery = document.getElementById('gallery');
       gallery.innerHTML = '';
+      document.getElementById('downloadAllBtn').style.display = 'none';
 
       if (!kodeInput || files.length === 0) {
         alert("Pastikan Anda sudah meng-upload file dan mengisi kode.");
         return;
       }
 
-      // Ambil hanya angka valid dari input
-      const kodeList = kodeInput.split(',')
+      kodeList = kodeInput.split(',')
         .map(k => k.trim())
-        .filter(k => /^\d+$/.test(k)); // hanya angka
+        .filter(k => /^\d+$/.test(k));
 
-      const matchedFiles = files.filter(file => {
-        const nameWithoutExt = file.name.toLowerCase().split('.').slice(0, -1).join('.');
-        return kodeList.includes(nameWithoutExt);
+      matchedFiles = files.filter(file => {
+        const lowerName = file.name.toLowerCase();
+        return kodeList.some(kode => lowerName.includes(kode));
       });
 
       if (matchedFiles.length === 0) {
-        gallery.innerHTML = '<p>Tidak ada foto yang cocok dengan kode angka.</p>';
+        gallery.innerHTML = '<p>Tidak ada foto yang mengandung angka tersebut.</p>';
         return;
       }
 
@@ -82,12 +105,41 @@
         reader.onload = function (e) {
           const div = document.createElement('div');
           div.className = 'photo-card';
+
+          const highlightedName = highlightMatches(file.name, kodeList);
+
           div.innerHTML = `
-            <img src="\${e.target.result}" alt="\${file.name}" />
-            <p>\${file.name}</p>
-            <a href="\${e.target.result}" download="\${file.name}">Download</a>
+            <img src="${e.target.result}" alt="${file.name}" />
+            <p>${highlightedName}</p>
+            <a href="${e.target.result}" download="${file.name}">Download</a>
           `;
           gallery.appendChild(div);
+        };
+        reader.readAsDataURL(file);
+      });
+
+      document.getElementById('downloadAllBtn').style.display = 'inline-block';
+    }
+
+    function downloadAll() {
+      if (matchedFiles.length === 0) return;
+
+      const zip = new JSZip();
+      const imgFolder = zip.folder("foto_terpilih");
+
+      let readCount = 0;
+
+      matchedFiles.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const base64 = e.target.result.split(',')[1];
+          imgFolder.file(file.name, base64, { base64: true });
+          readCount++;
+          if (readCount === matchedFiles.length) {
+            zip.generateAsync({ type: "blob" }).then(function (content) {
+              saveAs(content, "foto_terpilih.zip");
+            });
+          }
         };
         reader.readAsDataURL(file);
       });
@@ -95,3 +147,4 @@
   </script>
 </body>
 </html>
+
